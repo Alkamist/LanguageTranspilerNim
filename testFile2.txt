@@ -1,0 +1,9 @@
+fn xPlusY(x int, y int) int =
+  x + y
+
+const point = {
+  x = 5
+  y = 5
+}
+
+print(point.xPlusY)

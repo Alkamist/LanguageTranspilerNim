@@ -1,0 +1,12 @@
+#include <stdio.h>
+
+int xPlusY(int x, int y) {
+  return x + y
+}
+
+int main() {
+  int point_x = 5;
+  int point_y = 5;
+
+  printf("%d", xPlusY(point_x, point_y));
+}
