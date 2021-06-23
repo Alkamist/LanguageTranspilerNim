@@ -36,6 +36,7 @@ type
     Binary,
 
   UnaryExpressionKind* {.pure.} = enum
+    Plus,
     Minus,
 
   BinaryExpressionKind* {.pure.} = enum

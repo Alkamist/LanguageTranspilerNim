@@ -1,4 +1,1 @@
-1.0 2 3.int _asdf123"Ayy lmao"
-
-fn add(x int, y int) int =
-  x + y
+a = b = -5

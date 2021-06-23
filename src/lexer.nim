@@ -72,8 +72,8 @@ proc lexString(s: var Lexer): Token =
 
     result = Token(
       kind: TokenKind.String,
-      start: start,
-      finish: s.readIndex - 1,
+      start: start + 1,
+      finish: s.readIndex - 2,
     )
 
 proc lexNumber(s: var Lexer): Token =

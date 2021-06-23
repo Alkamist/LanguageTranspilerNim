@@ -1,10 +1,10 @@
 import
-  lexer#,
-  #parser
+  lexer,
+  parser
 
 var
   l = initLexer()
-  #p = initParser()
+  p = initParser()
 
 l.lexFile("testFile.txt")
-#p.parseTokens(l.data, l.tokens)
+p.parseTokens(l.data, l.tokens)
