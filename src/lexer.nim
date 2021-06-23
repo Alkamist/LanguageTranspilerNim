@@ -10,6 +10,9 @@ type
     charStart: int
     charFinish: int
 
+proc initLexer*(): Lexer =
+  result
+
 proc lexError(s: var Lexer, msg: string) =
   let (line, character) = lineData(s.data, s.charStart)
 
@@ -45,9 +48,6 @@ proc checkIdentifier(s: var Lexer): bool =
     s.charFinish = look - 1
 
     result = true
-
-proc checkBuiltinType(s: var Lexer): bool =
-  s.checkIdentifier() and s.readTo(s.charFinish) in BuiltinTypes
 
 proc checkKeyWord(s: var Lexer): bool =
   s.checkIdentifier() and s.readTo(s.charFinish) in KeyWords
@@ -99,7 +99,6 @@ proc lexFile*(s: var Lexer, fileName: string) =
   while s.charStart < s.dataLen:
     if s.checkNewLine(): discard
     elif s.checkWhiteSpace(): discard
-    elif s.checkBuiltinType(): s.addToken(TokenKind.BuiltinType)
     elif s.checkKeyWord(): s.addToken(TokenKind.KeyWord)
     elif s.checkIdentifier(): s.addToken(TokenKind.Identifier)
     elif s.checkNumber(): s.addToken(TokenKind.Number)

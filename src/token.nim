@@ -6,7 +6,6 @@ type
     Number,
     Operator,
     KeyWord,
-    BuiltinType,
 
   Token* = object
     kind*: TokenKind

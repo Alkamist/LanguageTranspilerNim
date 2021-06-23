@@ -3,8 +3,8 @@ import
   parser
 
 var
-  l = Lexer()
-  p = Parser()
+  l = initLexer()
+  p = initParser()
 
 l.lexFile("testFile.txt")
 p.parseTokens(l.data, l.tokens)
