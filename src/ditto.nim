@@ -1,6 +1,19 @@
-import std/options
-
 type
+  TokenKind* {.pure.} = enum
+    Unknown,
+    Identifier,
+    Float,
+    Int,
+    Bool,
+    String,
+    Operator,
+    KeyWord,
+
+  Token* = object
+    kind*: TokenKind
+    start*: int
+    finish*: int
+
   TypeKind* {.pure.} = enum
     Int,
     Float,
@@ -8,47 +21,102 @@ type
     Bool,
     Custom,
 
-  Type* = object
-    case kind*: TypeKind
-    of TypeKind.Int, TypeKind.Float, TypeKind.String, TypeKind.Bool: discard
-    of TypeKind.Custom: customValue*: string
-
   LiteralKind* {.pure.} = enum
     Int,
     Float,
     String,
     Bool,
 
-  Literal* = object
-    case kind*: LiteralKind
-    of LiteralKind.Int: intValue*: int
-    of LiteralKind.Float: floatValue*: float
-    of LiteralKind.String: stringValue*: string
-    of LiteralKind.Bool: boolValue*: bool
+  ListKind* {.pure.} = enum
+    Statement,
+    Comma,
 
-  FunctionDefinitionArgument* = object
-    name*: string
-    `type`*: Option[Type]
-    defaultValue*: Option[Node]
+  ExpressionKind* {.pure.} = enum
+    Unary,
+    Binary,
 
-  FunctionDefinition* = object
-    name*: string
-    arguments*: seq[FunctionDefinitionArgument]
-    returnType*: Option[Type]
-    body*: seq[Node]
+  UnaryExpressionKind* {.pure.} = enum
+    Minus,
+
+  BinaryExpressionKind* {.pure.} = enum
+    Equals,
+    EqualsEquals,
+    Greater,
+    GreaterEquals,
+    Lesser,
+    LesserEquals,
+    Plus,
+    PlusEquals,
+    Minus,
+    MinusEquals,
+    Star,
+    StarEquals,
+    Slash,
+    SlashEquals,
 
   NodeKind* {.pure.} = enum
+    None,
+    List,
+    Identifier,
     Type,
     Literal,
+    Expression,
+    FunctionDefinitionArgument,
     FunctionDefinition,
 
   Node* = ref NodeObject
 
   NodeObject* = object
     case kind*: NodeKind
-    of NodeKind.Type: typeValue*: Type
-    of NodeKind.Literal: literalValue*: Literal
-    of NodeKind.FunctionDefinition: functionDefinitionValue: FunctionDefinition
+
+    of NodeKind.None:
+      discard
+
+    of NodeKind.List:
+      listKind*: ListKind
+      listChildren*: seq[Node]
+
+    of NodeKind.Identifier:
+      identifierName*: string
+
+    of NodeKind.Type:
+      case typeKind*: TypeKind
+      of TypeKind.Int, TypeKind.Float, TypeKind.String, TypeKind.Bool:
+        discard
+      of TypeKind.Custom: typeName*:
+        string
+
+    of NodeKind.Literal:
+      case literalKind*: LiteralKind
+      of LiteralKind.Int:
+        literalIntValue*: int
+      of LiteralKind.Float:
+        literalFloatValue*: float
+      of LiteralKind.String:
+        literalStringValue*: string
+      of LiteralKind.Bool:
+        literalBoolValue*: bool
+
+    of NodeKind.Expression:
+      case expressionKind*: ExpressionKind
+      of ExpressionKind.Unary:
+        expressionUnaryKind*: UnaryExpressionKind
+        expressionUnaryValue*: Node
+      of ExpressionKind.Binary:
+        expressionBinaryKind*: BinaryExpressionKind
+        expressionBinaryLeft*: Node
+        expressionBinaryRight*: Node
+
+    of NodeKind.FunctionDefinitionArgument:
+      functionDefinitionArgumentName*: string
+      functionDefinitionArgumentType: Node
+      functionDefinitionArgumentDefaultValue*: Node
+
+    of NodeKind.FunctionDefinition:
+      functionDefinitionName*: string
+      functionDefinitionArguments*: Node
+      functionDefinitionReturnType*: Node
+      functionDefinitionBody*: Node
 
 const
   KeyWords* = ["var", "const", "if", "else", "elif", "for", "while", "fn"]
@@ -67,12 +135,25 @@ const
       biggest = max(biggest, operator.len)
     biggest
 
-proc initType*(identifier: string): Type =
-  if identifier notin BuiltinTypes:
-    result = Type(kind: TypeKind.Custom, customValue: identifier)
-  else:
-    case identifier:
-    of "int": result = Type(kind: TypeKind.Int)
-    of "float": result = Type(kind: TypeKind.Float)
-    of "string": result = Type(kind: TypeKind.String)
-    of "bool": result = Type(kind: TypeKind.Bool)
+# proc initType*(identifier: string): Node =
+#   if identifier notin BuiltinTypes:
+#     result = Node(kind: NodeKind.Type, typeKind: TypeKind.Custom, typeName: identifier)
+#   else:
+#     case identifier:
+#     of "int": result = Node(kind: NodeKind.Type, typeKind: TypeKind.Int)
+#     of "float": result = Node(kind: NodeKind.Type, typeKind: TypeKind.Float)
+#     of "string": result = Node(kind: NodeKind.Type, typeKind: TypeKind.String)
+#     of "bool": result = Node(kind: NodeKind.Type, typeKind: TypeKind.Bool)
+
+proc lineData*(data: string, index: int): tuple[line, character: int] =
+  let dataLen = data.len
+  var lookIndex = 0
+
+  while lookIndex < dataLen and lookIndex < index:
+    if data[lookIndex] == '\n':
+      result.character = 0
+      result.line += 1
+    else:
+      result.character += 1
+
+    lookIndex += 1

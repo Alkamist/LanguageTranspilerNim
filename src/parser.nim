@@ -1,7 +1,4 @@
-import
-  std/options,
-  token,
-  ditto
+import ditto
 
 type
   Parser* = object
@@ -9,7 +6,7 @@ type
     tokens*: seq[Token]
     tokenLen: int
     tokenIndex: int
-    program: seq[Node]
+    program: Node
 
 proc parseNode(s: var Parser): Node
 
@@ -17,100 +14,110 @@ proc initParser*(): Parser =
   result
 
 proc parseError(s: var Parser, msg: string) =
-  let (line, character) = lineData(s.data, s.tokens[s.tokenIndex].start)
+  let
+    index = s.tokenIndex.min(s.tokenLen - 1)
+    (line, character) = lineData(s.data, s.tokens[index].start)
 
   raise newException(IOError,
     msg & "\n Line: " & $(line + 1) & "\n Character: " & $(character + 1) & "\n"
   )
 
-proc currentToken(s: Parser): Token =
-  s.tokens[s.tokenIndex]
+proc isAtEnd(s: Parser): bool =
+  s.tokenIndex >= s.tokenLen
 
-proc tokenText(s: Parser): string =
-  let token = s.currentToken
+proc tokenText(s: Parser, lookAhead = 0): string =
+  let
+    index = s.tokenIndex + lookAhead
+    token = s.tokens[index]
   s.data[token.start..token.finish]
 
-proc increment(s: var Parser) =
-  s.tokenIndex += 1
-  if s.tokenIndex >= s.tokenLen:
-    s.parseError("Unexpectedly ran out of tokens.")
+proc tokenIs(s: Parser, kind: TokenKind, lookAhead = 0): bool =
+  let index = s.tokenIndex + lookAhead
+  index < s.tokenLen and s.tokens[index].kind == kind
 
-proc tokenIs(s: Parser, kind: TokenKind): bool =
-  s.currentToken.kind == kind
+proc operator(s: Parser, value: string, lookAhead = 0): bool =
+  s.tokenIs(TokenKind.Operator, lookAhead) and s.tokenText(lookAhead) == value
 
-proc operator(s: Parser, value: string): bool =
-  s.tokenIs(TokenKind.Operator) and s.tokenText == value
+proc keyWord(s: Parser, value: string, lookAhead = 0): bool =
+  s.tokenIs(TokenKind.KeyWord, lookAhead) and s.tokenText(lookAhead) == value
 
-proc keyWord(s: Parser, value: string): bool =
-  s.tokenIs(TokenKind.KeyWord) and s.tokenText == value
+proc parseIdentifier(s: var Parser): Node =
+  result = Node(kind: NodeKind.None)
 
-proc parseBinaryExpression(s: var Parser): BinaryExpression =
+  if s.tokenIs(TokenKind.Identifier):
+    let text = s.tokenText
 
-# proc parseFunctionDefinitionArgument(s: var Parser): FunctionDefinitionArgument =
-#   if s.tokenIs(TokenKind.Identifier):
-#     result.name = s.tokenText
-#     s.increment()
+    if text in ["true", "false"]:
+      result = Node(
+        kind: NodeKind.Literal,
+        literalKind: LiteralKind.Bool,
+      )
 
-#     if s.tokenIs(TokenKind.Identifier):
-#       result.`type` = some(initType(s.tokenText))
-#       s.increment()
+    else:
+      result = Node(
+        kind: NodeKind.Identifier,
+        identifierName: s.tokenText,
+      )
 
-#     if s.operator("="):
-#       s.increment()
-#       result.defaultValue = some(s.parseNode())
-#       s.increment()
+    s.tokenIndex += 1
 
-#   else:
-#     s.parseError("Invalid function argument name.")
+proc parseNumber(s: var Parser): Node =
+  result = Node(kind: NodeKind.None)
 
-# proc parseFunctionDefinition(s: var Parser): FunctionDefinition =
-#   s.increment()
+  if s.tokenIs(TokenKind.Number):
+    let text = s.tokenText
 
-#   if s.tokenIs(TokenKind.Identifier):
-#     result.name = s.tokenText
-#     s.increment()
+    # result = Node(
+    #   kind: NodeKind.Literal,
+    #   literalKind: TypeKind.Number,
+    #   typeName: identifier
+    # )
 
-#     if s.operator("("):
-#       s.increment()
+    s.tokenIndex += 1
 
-#       while true:
-#         result.arguments.add(s.parseFunctionDefinitionArgument())
+#proc parseStatement(s: var Parser): Node =
 
-#         if s.operator(","):
-#           s.increment()
 
-#         elif s.operator(")"):
-#           s.increment()
-#           break
+proc parseEquals(s: var Parser): Node =
+  result = Node(kind: NodeKind.None)
 
-#     if s.tokenIs(TokenKind.Identifier):
-#       result.returnType = some(initType(s.tokenText))
-#       s.increment()
+  if s.tokenIs(TokenKind.Identifier) and s.operator("=", 1):
+    result = Node(
+      kind: NodeKind.Expression,
+      expressionKind: ExpressionKind.Binary,
+      expressionBinaryKind: BinaryExpressionKind.Equals,
+    )
 
-#     if s.operator("{"):
-#       s.increment()
+    result.expressionBinaryLeft = s.parseIdentifier()
+    s.tokenIndex += 2
+    result.expressionBinaryRight = s.parseNode()
 
-#       while true:
-#         result.body.add(s.parseNode())
+proc parsePlus(s: var Parser): Node =
+  result = Node(kind: NodeKind.None)
 
-#         if s.operator("}"):
-#           s.increment()
-#           break
+  if s.tokenIs(TokenKind.Identifier) and s.operator("+", 1):
+    result = Node(
+      kind: NodeKind.Expression,
+      expressionKind: ExpressionKind.Binary,
+      expressionBinaryKind: BinaryExpressionKind.Plus,
+    )
 
-#   else:
-#     s.parseError("Invalid function name.")
+    result.expressionBinaryLeft = s.parseIdentifier()
+    s.tokenIndex += 2
+    result.expressionBinaryRight = s.parseNode()
 
 proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =
   s.data = data
   s.tokens = tokens
   s.tokenLen = s.tokens.len
   s.tokenIndex = 0
-
-  while s.tokenIndex < s.tokenLen:
-    s.program.add(s.parseNode())
+  s.program = s.parseNode()
 
 proc parseNode(s: var Parser): Node =
+  if s.isAtEnd: return Node(kind: NodeKind.None)
 
+  result = s.parseEquals()
+  if result.kind != NodeKind.None: return result
 
-  # if s.keyWord("fn"):
-  #   result = s.parseFunctionDefinition()
+  result = s.parseIdentifier()
+  if result.kind != NodeKind.None: return result
