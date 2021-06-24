@@ -14,7 +14,10 @@ type
 proc parseNode(s: var Parser, toIndex = none(int)): Node
 
 proc initParser*(): Parser =
-  result
+  result.program = Node(
+    kind: NodeKind.List,
+    list: List(kind: ListKind.Statement),
+  )
 
 proc parseError(s: var Parser, msg: string) =
   let
@@ -205,9 +208,13 @@ proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind
 
         if result.expression.binary.left.kind == NodeKind.None or
            result.expression.binary.right.kind == NodeKind.None:
+          s.readIndex = startOfEntireExpression
           return Node(kind: NodeKind.None)
         else:
           return result
+      else:
+        s.readIndex = startOfEntireExpression
+        return Node(kind: NodeKind.None)
 
     s.readIndex += 1
 
@@ -258,12 +265,22 @@ proc parseBinaryExpression(s: var Parser, toIndex = none(int)): Node =
   )
   if result.kind != NodeKind.None: return result
 
+proc parseStatementList(s: var Parser): Node =
+  result = Node(
+    kind: NodeKind.List,
+    list: List(kind: ListKind.Statement),
+  )
+
+  while s.isInBounds and not s.operator("}"):
+    result.list.children.add(s.parseNode())
+    s.readIndex += 1
+
 proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =
   s.data = data
   s.tokens = tokens
   s.tokenLen = s.tokens.len
   s.readIndex = 0
-  s.program = s.parseNode()
+  s.program = s.parseStatementList()
   echo s.program.toDitto
 
 proc parseNode(s: var Parser, toIndex = none(int)): Node =

@@ -201,13 +201,14 @@ proc toDitto*(s: List): string =
   of ListKind.Statement:
     for i, child in s.children:
       result.add(child.toDitto)
-      if i < s.children.len:
+      result.add(";")
+      if i + 1 < s.children.len:
         result.add("\n")
 
   of ListKind.Comma:
     for i, child in s.children:
       result.add(child.toDitto)
-      if i < s.children.len:
+      if i + 1 < s.children.len:
         result.add(", ")
 
 proc toDitto*(s: BinaryExpressionKind): string =
