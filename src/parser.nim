@@ -217,11 +217,45 @@ proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind
 proc parseBinaryExpression(s: var Parser, toIndex = none(int)): Node =
   let startOfEntireExpression = s.readIndex
 
-  result = s.parseBinaryExpressions([BinaryExpressionKind.Plus, BinaryExpressionKind.Minus], toIndex)
+  result = s.parseBinaryExpressions(
+    [BinaryExpressionKind.Equals,
+     BinaryExpressionKind.PlusEquals, BinaryExpressionKind.MinusEquals,
+     BinaryExpressionKind.StarEquals, BinaryExpressionKind.SlashEquals,
+     BinaryExpressionKind.ModEquals],
+    toIndex
+  )
   if result.kind != NodeKind.None: return result
 
   s.readIndex = startOfEntireExpression
-  result = s.parseBinaryExpressions([BinaryExpressionKind.Star, BinaryExpressionKind.Slash], toIndex)
+  result = s.parseBinaryExpressions([BinaryExpressionKind.Or], toIndex)
+  if result.kind != NodeKind.None: return result
+
+  s.readIndex = startOfEntireExpression
+  result = s.parseBinaryExpressions([BinaryExpressionKind.And], toIndex)
+  if result.kind != NodeKind.None: return result
+
+  s.readIndex = startOfEntireExpression
+  result = s.parseBinaryExpressions(
+    [BinaryExpressionKind.EqualsEquals, BinaryExpressionKind.BangEquals,
+     BinaryExpressionKind.Lesser, BinaryExpressionKind.LesserEquals,
+     BinaryExpressionKind.Greater, BinaryExpressionKind.GreaterEquals],
+    toIndex
+  )
+  if result.kind != NodeKind.None: return result
+
+  s.readIndex = startOfEntireExpression
+  result = s.parseBinaryExpressions(
+    [BinaryExpressionKind.Plus, BinaryExpressionKind.Minus],
+    toIndex
+  )
+  if result.kind != NodeKind.None: return result
+
+  s.readIndex = startOfEntireExpression
+  result = s.parseBinaryExpressions(
+    [BinaryExpressionKind.Star, BinaryExpressionKind.Slash,
+     BinaryExpressionKind.Mod],
+    toIndex
+  )
   if result.kind != NodeKind.None: return result
 
 proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =

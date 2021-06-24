@@ -111,9 +111,9 @@ proc lexNumber(s: var Lexer): Token =
       )
 
     else:
-      if s.isInBounds(1) and
-         s.readChar(1) notin NumberChars and
-         s.readChar(1) notin WhiteSpace:
+      if s.isInBounds(0) and
+         s.readChar(0) notin NumberChars and
+         s.readChar(0) notin WhiteSpace:
         s.readIndex -= 1
         return Token(
           kind: TokenKind.Int,
@@ -152,20 +152,20 @@ proc lexToken(s: var Lexer): Token =
   if result.kind == TokenKind.String:
     return result
 
-  result = s.lexIdentifier()
-  if result.kind == TokenKind.Identifier:
-    if s.readToken(result) in ["true", "false"]:
-      result.kind = TokenKind.Bool
-    if s.readToken(result) in KeyWords:
-      result.kind = TokenKind.KeyWord
-    return result
-
   result = s.lexNumber()
   if result.kind in [TokenKind.Int, TokenKind.Float]:
     return result
 
   result = s.lexOperator()
   if result.kind == TokenKind.Operator:
+    return result
+
+  result = s.lexIdentifier()
+  if result.kind == TokenKind.Identifier:
+    if s.readToken(result) in ["true", "false"]:
+      result.kind = TokenKind.Bool
+    if s.readToken(result) in KeyWords:
+      result.kind = TokenKind.KeyWord
     return result
 
 proc lexFile*(s: var Lexer, fileName: string) =

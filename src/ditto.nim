@@ -8,9 +8,9 @@ const
   IdentChars* = {'a'..'z', 'A'..'Z', '0'..'9', '_'}
   NumberStartChars* = {'0'..'9', '.'}
   NumberChars* = {'0'..'9', '_', '.'}
-  Operators* = ["+", "+=", "-", "-=", "*", "*=", "/", "/=", "<",
-                "<=", ">", ">=", "=", "==", ".", "(", ")", "{",
-                "}", "[", "]", ",", ":", ";"]
+  Operators* = ["and", "or", "not", "+", "+=", "-", "-=", "*", "*=", "/", "/=",
+                "<", "<=", ">", ">=", "!=", "=", "==", "%", "%=", ".", "(", ")",
+                "{", "}", "[", "]", ",", ":", ";"]
   MaxOperatorLength* = block:
     var biggest = 0
     for operator in Operators:
@@ -84,6 +84,10 @@ type
     value*: Node
 
   BinaryExpressionKind* {.pure.} = enum
+    And,
+    Or,
+    Not,
+    BangEquals,
     Equals,
     EqualsEquals,
     Greater,
@@ -98,6 +102,8 @@ type
     StarEquals,
     Slash,
     SlashEquals,
+    Mod,
+    ModEquals,
 
   BinaryExpression* = object
     kind*: BinaryExpressionKind
@@ -149,6 +155,10 @@ proc lineData*(data: string, index: int): tuple[line, character: int] =
 
 proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   case text:
+  of "and": some(BinaryExpressionKind.And)
+  of "or": some(BinaryExpressionKind.Or)
+  of "not": some(BinaryExpressionKind.Not)
+  of "!=": some(BinaryExpressionKind.BangEquals)
   of "=": some(BinaryExpressionKind.Equals)
   of "==": some(BinaryExpressionKind.EqualsEquals)
   of ">": some(BinaryExpressionKind.Greater)
@@ -163,6 +173,8 @@ proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   of "*=": some(BinaryExpressionKind.StarEquals)
   of "/": some(BinaryExpressionKind.Slash)
   of "/=": some(BinaryExpressionKind.SlashEquals)
+  of "%": some(BinaryExpressionKind.Mod)
+  of "%=": some(BinaryExpressionKind.ModEquals)
   else: none(BinaryExpressionKind)
 
 proc toDitto*(s: Identifier): string =
@@ -200,6 +212,10 @@ proc toDitto*(s: List): string =
 
 proc toDitto*(s: BinaryExpressionKind): string =
   case s:
+  of BinaryExpressionKind.And: "and"
+  of BinaryExpressionKind.Or: "or"
+  of BinaryExpressionKind.Not: "not"
+  of BinaryExpressionKind.BangEquals: "!="
   of BinaryExpressionKind.Equals: "="
   of BinaryExpressionKind.EqualsEquals: "=="
   of BinaryExpressionKind.Greater: ">"
@@ -214,6 +230,8 @@ proc toDitto*(s: BinaryExpressionKind): string =
   of BinaryExpressionKind.StarEquals: "*="
   of BinaryExpressionKind.Slash: "/"
   of BinaryExpressionKind.SlashEquals: "/="
+  of BinaryExpressionKind.Mod: "%"
+  of BinaryExpressionKind.ModEquals: "%="
 
 proc toDitto*(s: Expression): string =
   case s.kind:
@@ -224,6 +242,13 @@ proc toDitto*(s: Expression): string =
     result.add(s.unary.value.toDitto)
 
   of ExpressionKind.Binary:
+    # result.add(s.binary.kind.toDitto)
+    # result.add("(")
+    # result.add(s.binary.left.toDitto)
+    # result.add(", ")
+    # result.add(s.binary.right.toDitto)
+    # result.add(")")
+
     result.add(s.binary.left.toDitto)
     result.add(" ")
     result.add(s.binary.kind.toDitto)
