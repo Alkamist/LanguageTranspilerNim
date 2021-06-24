@@ -11,7 +11,7 @@ type
     readIndex: int
     program: Node
 
-proc parseNode(s: var Parser): Node
+proc parseNode(s: var Parser, toIndex = none(int)): Node
 
 proc initParser*(): Parser =
   result
@@ -132,71 +132,96 @@ proc parseString(s: var Parser): Node =
     s.readIndex += 1
 
 proc parseUnaryExpression(s: var Parser): Node =
-  var unaryKind = UnaryExpressionKind.Plus
-
   if s.operator("-"):
     s.readIndex += 1
-    unaryKind = UnaryExpressionKind.Minus
-
-  result = Node(
-    kind: NodeKind.Expression,
-    expression: Expression(
-      kind: ExpressionKind.Unary,
-      unary: UnaryExpression(kind: unaryKind)
-    ),
-  )
-
-  result.expression.unary.value = s.parseString()
-  if result.expression.unary.value.kind != NodeKind.None: return result
-
-  result.expression.unary.value = s.parseBool()
-  if result.expression.unary.value.kind != NodeKind.None: return result
-
-  result.expression.unary.value = s.parseFloat()
-  if result.expression.unary.value.kind != NodeKind.None: return result
-
-  result.expression.unary.value = s.parseInt()
-  if result.expression.unary.value.kind != NodeKind.None: return result
-
-  result.expression.unary.value = s.parseIdentifier()
-  if result.expression.unary.value.kind != NodeKind.None: return result
-
-  result = Node(kind: NodeKind.None)
-
-proc parseBinaryExpressionLeftToRightOfKinds(s: var Parser, kinds: openarray[BinaryExpressionKind]): Node =
-  result = Node(kind: NodeKind.None)
-
-  #while s.isInBounds and not s.operator(";"):
-  var left = s.parseUnaryExpression()
-
-  if left.kind == NodeKind.Expression and
-     left.expression.kind == ExpressionKind.Unary and
-     s.tokenIs(TokenKind.Operator):
-
-    let kind = s.tokenText.toBinaryExpressionKind
-
-    if kind.isSome and kind.get in kinds:
-      result = Node(
-        kind: NodeKind.Expression,
-        expression: Expression(
-          kind: ExpressionKind.Binary,
-          binary: BinaryExpression(
-            kind: kind.get,
-            left: left,
-          ),
+    result = Node(
+      kind: NodeKind.Expression,
+      expression: Expression(
+        kind: ExpressionKind.Unary,
+        unary: UnaryExpression(
+          kind: UnaryExpressionKind.Minus,
+          value: s.parseUnaryExpression(),
         ),
-      )
+      ),
+    )
+    if result.expression.unary.value.kind != NodeKind.None: return result
+  else:
+    result = Node(
+      kind: NodeKind.Expression,
+      expression: Expression(
+        kind: ExpressionKind.Unary,
+        unary: UnaryExpression(kind: UnaryExpressionKind.Plus),
+      ),
+    )
 
-      s.readIndex += 1
-      result.expression.binary.right = s.parseNode()
+    result.expression.unary.value = s.parseString()
+    if result.expression.unary.value.kind != NodeKind.None: return result
 
-proc parseBinaryExpression(s: var Parser): Node =
-  var start = s.readIndex
+    result.expression.unary.value = s.parseBool()
+    if result.expression.unary.value.kind != NodeKind.None: return result
 
-  result = s.parseBinaryExpressionLeftToRightOfKinds([BinaryExpressionKind.Star, BinaryExpressionKind.Slash])
+    result.expression.unary.value = s.parseFloat()
+    if result.expression.unary.value.kind != NodeKind.None: return result
+
+    result.expression.unary.value = s.parseInt()
+    if result.expression.unary.value.kind != NodeKind.None: return result
+
+    result.expression.unary.value = s.parseIdentifier()
+    if result.expression.unary.value.kind != NodeKind.None: return result
+
+  return Node(kind: NodeKind.None)
+
+proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind], toIndex = none(int)): Node =
+  result = Node(kind: NodeKind.None)
+
+  let startOfEntireExpression = s.readIndex
+
+  while (toIndex.isNone and s.isInBounds and not s.operator(";")) or
+        (toIndex.isSome and s.readIndex <= toIndex.get):
+    let startOfThisExpression = s.readIndex
+
+    var left = s.parseUnaryExpression()
+
+    if left.kind == NodeKind.Expression and
+       left.expression.kind == ExpressionKind.Unary and
+       s.tokenIs(TokenKind.Operator):
+
+      let opKind = s.tokenText.toBinaryExpressionKind
+
+      if opKind.isSome and opKind.get in kinds:
+        result = Node(
+          kind: NodeKind.Expression,
+          expression: Expression(
+            kind: ExpressionKind.Binary,
+            binary: BinaryExpression(kind: opKind.get),
+          ),
+        )
+
+        s.readIndex = startOfEntireExpression
+        result.expression.binary.left = s.parseNode(some(startOfThisExpression - 1))
+
+        s.readIndex += 1
+        result.expression.binary.right = s.parseNode()
+
+        if result.expression.binary.left.kind == NodeKind.None or
+           result.expression.binary.right.kind == NodeKind.None:
+          return Node(kind: NodeKind.None)
+        else:
+          return result
+
+    s.readIndex += 1
+
+  if result.kind == NodeKind.None:
+    s.readIndex = startOfEntireExpression
+
+proc parseBinaryExpression(s: var Parser, toIndex = none(int)): Node =
+  let startOfEntireExpression = s.readIndex
+
+  result = s.parseBinaryExpressions([BinaryExpressionKind.Plus, BinaryExpressionKind.Minus], toIndex)
   if result.kind != NodeKind.None: return result
 
-  result = s.parseBinaryExpressionLeftToRightOfKinds([BinaryExpressionKind.Plus, BinaryExpressionKind.Minus])
+  s.readIndex = startOfEntireExpression
+  result = s.parseBinaryExpressions([BinaryExpressionKind.Star, BinaryExpressionKind.Slash], toIndex)
   if result.kind != NodeKind.None: return result
 
 proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =
@@ -205,15 +230,12 @@ proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =
   s.tokenLen = s.tokens.len
   s.readIndex = 0
   s.program = s.parseNode()
+  echo s.program.toDitto
 
-  echo s.program.kind
-  echo s.program.expression.kind
-  echo s.program.expression.binary.kind
-
-proc parseNode(s: var Parser): Node =
+proc parseNode(s: var Parser, toIndex = none(int)): Node =
   if not s.isInBounds: return Node(kind: NodeKind.None)
 
-  result = s.parseBinaryExpression()
+  result = s.parseBinaryExpression(toIndex)
   if result.kind != NodeKind.None: return result
 
   result = s.parseUnaryExpression()

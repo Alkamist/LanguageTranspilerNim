@@ -1,5 +1,22 @@
 import std/options
 
+const
+  KeyWords* = ["var", "const", "if", "else", "elif", "for", "while", "fn"]
+  BuiltinTypes* = ["int", "float", "string", "bool"]
+  WhiteSpace* = {' ', '\t', '\v', '\c', '\n', '\f'}
+  IdentStartChars* = {'a'..'z', 'A'..'Z', '_'}
+  IdentChars* = {'a'..'z', 'A'..'Z', '0'..'9', '_'}
+  NumberStartChars* = {'0'..'9', '.'}
+  NumberChars* = {'0'..'9', '_', '.'}
+  Operators* = ["+", "+=", "-", "-=", "*", "*=", "/", "/=", "<",
+                "<=", ">", ">=", "=", "==", ".", "(", ")", "{",
+                "}", "[", "]", ",", ":", ";"]
+  MaxOperatorLength* = block:
+    var biggest = 0
+    for operator in Operators:
+      biggest = max(biggest, operator.len)
+    biggest
+
 type
   TokenKind* {.pure.} = enum
     Unknown,
@@ -96,17 +113,6 @@ type
     of ExpressionKind.Unary: unary*: UnaryExpression
     of ExpressionKind.Binary: binary*: BinaryExpression
 
-  # FunctionDefinitionArgument* = object
-  #   name*: string
-  #   `type`*: Node
-  #   defaultValue*: Node
-
-  # FunctionDefinition* = object
-  #   name*: string
-  #   arguments*: Node
-  #   returnType*: Node
-  #   body*: Node
-
   NodeKind* {.pure.} = enum
     None,
     List,
@@ -114,8 +120,6 @@ type
     Type,
     Literal,
     Expression,
-    # FunctionDefinitionArgument,
-    # FunctionDefinition,
 
   Node* = ref NodeObject
 
@@ -127,25 +131,8 @@ type
     of NodeKind.Type: `type`*: Type
     of NodeKind.Literal: literal*: Literal
     of NodeKind.Expression: expression*: Expression
-    # of NodeKind.FunctionDefinitionArgument: functionDefinitionArgument*: FunctionDefinitionArgument
-    # of NodeKind.FunctionDefinition: functionDefinition*: FunctionDefinition
 
-const
-  KeyWords* = ["var", "const", "if", "else", "elif", "for", "while", "fn"]
-  BuiltinTypes* = ["int", "float", "string", "bool"]
-  WhiteSpace* = {' ', '\t', '\v', '\c', '\n', '\f'}
-  IdentStartChars* = {'a'..'z', 'A'..'Z', '_'}
-  IdentChars* = {'a'..'z', 'A'..'Z', '0'..'9', '_'}
-  NumberStartChars* = {'0'..'9', '.'}
-  NumberChars* = {'0'..'9', '_', '.'}
-  Operators* = ["+", "+=", "-", "-=", "*", "*=", "/", "/=", "<",
-                "<=", ">", ">=", "=", "==", ".", "(", ")", "{",
-                "}", "[", "]", ",", ":", ";"]
-  MaxOperatorLength* = block:
-    var biggest = 0
-    for operator in Operators:
-      biggest = max(biggest, operator.len)
-    biggest
+proc toDitto*(s: Node): string
 
 proc lineData*(data: string, index: int): tuple[line, character: int] =
   let dataLen = data.len
@@ -159,23 +146,6 @@ proc lineData*(data: string, index: int): tuple[line, character: int] =
       result.character += 1
 
     lookIndex += 1
-
-proc toOperatorString*(binaryExpressionKind: BinaryExpressionKind): string =
-  case binaryExpressionKind:
-  of BinaryExpressionKind.Equals: "="
-  of BinaryExpressionKind.EqualsEquals: "=="
-  of BinaryExpressionKind.Greater: ">"
-  of BinaryExpressionKind.GreaterEquals: ">="
-  of BinaryExpressionKind.Lesser: "<"
-  of BinaryExpressionKind.LesserEquals: "<="
-  of BinaryExpressionKind.Plus: "+"
-  of BinaryExpressionKind.PlusEquals: "+="
-  of BinaryExpressionKind.Minus: "-"
-  of BinaryExpressionKind.MinusEquals: "-="
-  of BinaryExpressionKind.Star: "*"
-  of BinaryExpressionKind.StarEquals: "*="
-  of BinaryExpressionKind.Slash: "/"
-  of BinaryExpressionKind.SlashEquals: "/="
 
 proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   case text:
@@ -194,3 +164,77 @@ proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   of "/": some(BinaryExpressionKind.Slash)
   of "/=": some(BinaryExpressionKind.SlashEquals)
   else: none(BinaryExpressionKind)
+
+proc toDitto*(s: Identifier): string =
+  s.name
+
+proc toDitto*(s: Literal): string =
+  case s.kind:
+  of LiteralKind.Int: $s.intValue
+  of LiteralKind.Float: $s.floatValue
+  of LiteralKind.String: "\"" & $s.stringValue & "\""
+  of LiteralKind.Bool: $s.boolValue
+
+proc toDitto*(s: Type): string =
+  case s.kind:
+  of TypeKind.Int: "int"
+  of TypeKind.Float: "float"
+  of TypeKind.String: "string"
+  of TypeKind.Bool: "bool"
+  of TypeKind.Custom: s.name
+
+proc toDitto*(s: List): string =
+  case s.kind:
+
+  of ListKind.Statement:
+    for i, child in s.children:
+      result.add(child.toDitto)
+      if i < s.children.len:
+        result.add("\n")
+
+  of ListKind.Comma:
+    for i, child in s.children:
+      result.add(child.toDitto)
+      if i < s.children.len:
+        result.add(", ")
+
+proc toDitto*(s: BinaryExpressionKind): string =
+  case s:
+  of BinaryExpressionKind.Equals: "="
+  of BinaryExpressionKind.EqualsEquals: "=="
+  of BinaryExpressionKind.Greater: ">"
+  of BinaryExpressionKind.GreaterEquals: ">="
+  of BinaryExpressionKind.Lesser: "<"
+  of BinaryExpressionKind.LesserEquals: "<="
+  of BinaryExpressionKind.Plus: "+"
+  of BinaryExpressionKind.PlusEquals: "+="
+  of BinaryExpressionKind.Minus: "-"
+  of BinaryExpressionKind.MinusEquals: "-="
+  of BinaryExpressionKind.Star: "*"
+  of BinaryExpressionKind.StarEquals: "*="
+  of BinaryExpressionKind.Slash: "/"
+  of BinaryExpressionKind.SlashEquals: "/="
+
+proc toDitto*(s: Expression): string =
+  case s.kind:
+
+  of ExpressionKind.Unary:
+    if s.unary.kind == UnaryExpressionKind.Minus:
+      result.add("-")
+    result.add(s.unary.value.toDitto)
+
+  of ExpressionKind.Binary:
+    result.add(s.binary.left.toDitto)
+    result.add(" ")
+    result.add(s.binary.kind.toDitto)
+    result.add(" ")
+    result.add(s.binary.right.toDitto)
+
+proc toDitto*(s: Node): string =
+  case s.kind:
+  of NodeKind.None: "NONE"
+  of NodeKind.List: s.list.toDitto
+  of NodeKind.Identifier: s.identifier.toDitto
+  of NodeKind.Type: s.`type`.toDitto
+  of NodeKind.Literal: s.literal.toDitto
+  of NodeKind.Expression: s.expression.toDitto
