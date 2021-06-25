@@ -112,8 +112,7 @@ proc lexNumber(s: var Lexer): Token =
 
     else:
       if s.isInBounds(0) and
-         s.readChar(0) notin NumberChars and
-         s.readChar(0) notin WhiteSpace:
+         s.readChar(0) in IdentStartChars:
         s.readIndex -= 1
         return Token(
           kind: TokenKind.Int,

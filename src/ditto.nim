@@ -138,8 +138,6 @@ type
     of NodeKind.Literal: literal*: Literal
     of NodeKind.Expression: expression*: Expression
 
-proc toDitto*(s: Node): string
-
 proc lineData*(data: string, index: int): tuple[line, character: int] =
   let dataLen = data.len
   var lookIndex = 0
@@ -152,6 +150,76 @@ proc lineData*(data: string, index: int): tuple[line, character: int] =
       result.character += 1
 
     lookIndex += 1
+
+proc initNone*(): Node =
+  Node(kind: NodeKind.None)
+
+proc initIntLiteral*(value: int): Node =
+  Node(
+    kind: NodeKind.Literal,
+    literal: Literal(
+      kind: LiteralKind.Int,
+      intValue: value,
+    ),
+  )
+
+proc initFloatLiteral*(value: float): Node =
+  Node(
+    kind: NodeKind.Literal,
+    literal: Literal(
+      kind: LiteralKind.Float,
+      floatValue: value,
+    ),
+  )
+
+proc initBoolLiteral*(value: bool): Node =
+  Node(
+    kind: NodeKind.Literal,
+    literal: Literal(
+      kind: LiteralKind.Bool,
+      boolValue: value,
+    ),
+  )
+
+proc initStringLiteral*(value: string): Node =
+  Node(
+    kind: NodeKind.Literal,
+    literal: Literal(
+      kind: LiteralKind.String,
+      stringValue: value,
+    ),
+  )
+
+proc initIdentifier*(name: string): Node =
+  Node(
+    kind: NodeKind.Identifier,
+    identifier: Identifier(name: name),
+  )
+
+proc initUnaryExpression*(kind: UnaryExpressionKind, value = initNone()): Node =
+  Node(
+    kind: NodeKind.Expression,
+    expression: Expression(
+      kind: ExpressionKind.Unary,
+      unary: UnaryExpression(kind: kind, value: value),
+    ),
+  )
+
+proc initBinaryExpression*(kind: BinaryExpressionKind;
+                          left, right = initNone()): Node =
+  Node(
+    kind: NodeKind.Expression,
+    expression: Expression(
+      kind: ExpressionKind.Binary,
+      binary: BinaryExpression(kind: kind, left: left, right: right),
+    ),
+  )
+
+proc initStatementList*(): Node =
+  Node(
+    kind: NodeKind.List,
+    list: List(kind: ListKind.Statement),
+  )
 
 proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   case text:
@@ -176,6 +244,8 @@ proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   of "%": some(BinaryExpressionKind.Mod)
   of "%=": some(BinaryExpressionKind.ModEquals)
   else: none(BinaryExpressionKind)
+
+proc toDitto*(s: Node): string
 
 proc toDitto*(s: Identifier): string =
   s.name

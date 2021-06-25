@@ -48,56 +48,37 @@ proc keyWord(s: Parser, value: string, lookAhead = 0): bool =
   s.tokenIs(TokenKind.KeyWord, lookAhead) and s.tokenText(lookAhead) == value
 
 proc parseIdentifier(s: var Parser): Node =
-  result = Node(kind: NodeKind.None)
-
+  result = initNone()
   if s.tokenIs(TokenKind.Identifier):
-    result = Node(
-      kind: NodeKind.Identifier,
-      identifier: Identifier(name: s.tokenText),
-    )
-
+    result = initIdentifier(s.tokenText)
     s.readIndex += 1
 
 proc parseInt(s: var Parser): Node =
-  result = Node(kind: NodeKind.None)
+  result = initNone()
 
   if s.tokenIs(TokenKind.Int):
     var intValue = 0
 
     if parseInt(s.tokenText, intValue) == 0:
-      return Node(kind: NodeKind.None)
+      return initNone()
 
-    result = Node(
-      kind: NodeKind.Literal,
-      literal: Literal(
-        kind: LiteralKind.Int,
-        intValue: intValue,
-      ),
-    )
-
+    result = initIntLiteral(intValue)
     s.readIndex += 1
 
 proc parseFloat(s: var Parser): Node =
-  result = Node(kind: NodeKind.None)
+  result = initNone()
 
   if s.tokenIs(TokenKind.Float):
     var floatValue = 0.0
 
     if parseFloat(s.tokenText, floatValue) == 0:
-      return Node(kind: NodeKind.None)
+      return initNone()
 
-    result = Node(
-      kind: NodeKind.Literal,
-      literal: Literal(
-        kind: LiteralKind.Float,
-        floatValue: floatValue,
-      ),
-    )
-
+    result = initFloatLiteral(floatValue)
     s.readIndex += 1
 
 proc parseBool(s: var Parser): Node =
-  result = Node(kind: NodeKind.None)
+  result = initNone()
 
   if s.tokenIs(TokenKind.Bool):
     let text = s.tokenText
@@ -110,52 +91,22 @@ proc parseBool(s: var Parser): Node =
     else:
       s.parseError("Invalid boolean value.")
 
-    result = Node(
-      kind: NodeKind.Literal,
-      literal: Literal(
-        kind: LiteralKind.Bool,
-        boolValue: boolValue,
-      ),
-    )
-
+    result = initBoolLiteral(boolValue)
     s.readIndex += 1
 
 proc parseString(s: var Parser): Node =
-  result = Node(kind: NodeKind.None)
-
+  result = initNone()
   if s.tokenIs(TokenKind.String):
-    result = Node(
-      kind: NodeKind.Literal,
-      literal: Literal(
-        kind: LiteralKind.String,
-        stringValue: s.tokenText,
-      ),
-    )
-
+    result = initStringLiteral(s.tokenText)
     s.readIndex += 1
 
 proc parseUnaryExpression(s: var Parser): Node =
   if s.operator("-"):
     s.readIndex += 1
-    result = Node(
-      kind: NodeKind.Expression,
-      expression: Expression(
-        kind: ExpressionKind.Unary,
-        unary: UnaryExpression(
-          kind: UnaryExpressionKind.Minus,
-          value: s.parseUnaryExpression(),
-        ),
-      ),
-    )
+    result = initUnaryExpression(UnaryExpressionKind.Minus, s.parseUnaryExpression())
     if result.expression.unary.value.kind != NodeKind.None: return result
   else:
-    result = Node(
-      kind: NodeKind.Expression,
-      expression: Expression(
-        kind: ExpressionKind.Unary,
-        unary: UnaryExpression(kind: UnaryExpressionKind.Plus),
-      ),
-    )
+    result = initUnaryExpression(UnaryExpressionKind.Plus)
 
     result.expression.unary.value = s.parseString()
     if result.expression.unary.value.kind != NodeKind.None: return result
@@ -172,10 +123,10 @@ proc parseUnaryExpression(s: var Parser): Node =
     result.expression.unary.value = s.parseIdentifier()
     if result.expression.unary.value.kind != NodeKind.None: return result
 
-  return Node(kind: NodeKind.None)
+  return initNone()
 
 proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind], toIndex = none(int)): Node =
-  result = Node(kind: NodeKind.None)
+  result = initNone()
 
   let startOfEntireExpression = s.readIndex
 
@@ -192,13 +143,7 @@ proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind
       let opKind = s.tokenText.toBinaryExpressionKind
 
       if opKind.isSome and opKind.get in kinds:
-        result = Node(
-          kind: NodeKind.Expression,
-          expression: Expression(
-            kind: ExpressionKind.Binary,
-            binary: BinaryExpression(kind: opKind.get),
-          ),
-        )
+        result = initBinaryExpression(opKind.get)
 
         s.readIndex = startOfEntireExpression
         result.expression.binary.left = s.parseNode(some(startOfThisExpression - 1))
@@ -209,12 +154,12 @@ proc parseBinaryExpressions(s: var Parser, kinds: openarray[BinaryExpressionKind
         if result.expression.binary.left.kind == NodeKind.None or
            result.expression.binary.right.kind == NodeKind.None:
           s.readIndex = startOfEntireExpression
-          return Node(kind: NodeKind.None)
+          return initNone()
         else:
           return result
       else:
         s.readIndex = startOfEntireExpression
-        return Node(kind: NodeKind.None)
+        return initNone()
 
     s.readIndex += 1
 
@@ -266,11 +211,7 @@ proc parseBinaryExpression(s: var Parser, toIndex = none(int)): Node =
   if result.kind != NodeKind.None: return result
 
 proc parseStatementList(s: var Parser): Node =
-  result = Node(
-    kind: NodeKind.List,
-    list: List(kind: ListKind.Statement),
-  )
-
+  result = initStatementList()
   while s.isInBounds and not s.operator("}"):
     result.list.children.add(s.parseNode())
     s.readIndex += 1

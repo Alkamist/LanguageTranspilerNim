@@ -1,4 +1,3 @@
-a = b + c * "Ayy  + Lmao";
+a = 10 + 5.0 + true + "ayy lmao";
 
-
-c + d;
+a = 10 + 5.0 + true + "ayy lmao";
