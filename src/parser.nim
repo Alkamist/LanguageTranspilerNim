@@ -100,6 +100,81 @@ proc parseString(s: var Parser): Node =
     result = initStringLiteral(s.tokenText)
     s.readIndex += 1
 
+proc parseCommaList(s: var Parser): Node =
+  result = initCommaList()
+
+  let start = s.readIndex
+
+  while s.isInBounds:
+    let node = s.parseNode()
+    if node.kind == NodeKind.None:
+      s.readIndex = start
+      return initNone()
+
+    else:
+      result.list.children.add(node)
+      if s.operator(","):
+        s.readIndex += 1
+      else:
+        return result
+
+# proc parseType(s: var Parser): Node =
+#   let typeIdentifier = s.parseIdentifier()
+
+#   if typeIdentifier.kind == NodeKind.Identifier:
+
+# proc parseVariableDefinition(s: var Parser): Node =
+#   result = initNone()
+
+#   let start = s.readIndex
+
+#   if s.keyWord("var") or s.keyWord("const"):
+#     let variableKind = s.tokenText.toVariableDefinitionKind
+
+#     if variableKind.isSome:
+#       s.readIndex += 1
+
+#       var output = initVariableDefinition(variableKind)
+
+#       let name = s.parseIdentifier()
+
+#       if name.kind == NodeKind.Identifier:
+#         output.name = name
+
+#         let possibleType = s.parseType()
+
+#         if possibleType.kind == NodeKind.Type:
+#           output.`type` = possibleType.get
+
+#         return output
+
+#   s.readIndex = start
+
+proc parseFunctionCall(s: var Parser): Node =
+  result = initNone()
+
+  let
+    start = s.readIndex
+    name = s.parseIdentifier()
+
+  if name.kind == NodeKind.Identifier and s.operator("("):
+    s.readIndex += 1
+
+    let commaList = s.parseCommaList()
+
+    if commaList.kind == NodeKind.List and
+       commaList.list.kind == ListKind.Comma:
+      var output = initFunctionCall(name, commaList)
+
+      if s.operator(")"):
+        s.readIndex += 1
+        return output
+
+    elif s.operator(")"):
+      return initFunctionCall(name)
+  else:
+    s.readIndex = start
+
 proc parseUnaryExpression(s: var Parser): Node =
   if s.operator("-"):
     s.readIndex += 1
@@ -118,6 +193,9 @@ proc parseUnaryExpression(s: var Parser): Node =
     if result.expression.unary.value.kind != NodeKind.None: return result
 
     result.expression.unary.value = s.parseInt()
+    if result.expression.unary.value.kind != NodeKind.None: return result
+
+    result.expression.unary.value = s.parseFunctionCall()
     if result.expression.unary.value.kind != NodeKind.None: return result
 
     result.expression.unary.value = s.parseIdentifier()
@@ -221,7 +299,8 @@ proc parseTokens*(s: var Parser, data: string, tokens: seq[Token]) =
   s.tokens = tokens
   s.tokenLen = s.tokens.len
   s.readIndex = 0
-  s.program = s.parseStatementList()
+  #s.program = s.parseStatementList()
+  s.program = s.parseVariableDefinition()
   echo s.program.toDitto
 
 proc parseNode(s: var Parser, toIndex = none(int)): Node =

@@ -48,7 +48,16 @@ type
     of TypeKind.Int, TypeKind.Float, TypeKind.String, TypeKind.Bool:
       discard
     of TypeKind.Custom:
-      name*: string
+      name*: Node
+
+  VariableDefinitionKind* {.pure.} = enum
+    Constant,
+    Mutable,
+
+  VariableDefinition* = object
+    kind*: VariableDefinitionKind
+    name*: Node
+    `type`*: Node
 
   LiteralKind* {.pure.} = enum
     Int,
@@ -119,6 +128,10 @@ type
     of ExpressionKind.Unary: unary*: UnaryExpression
     of ExpressionKind.Binary: binary*: BinaryExpression
 
+  FunctionCall* = object
+    name*: Node
+    arguments*: Node
+
   NodeKind* {.pure.} = enum
     None,
     List,
@@ -126,6 +139,8 @@ type
     Type,
     Literal,
     Expression,
+    FunctionCall,
+    VariableDefinition,
 
   Node* = ref NodeObject
 
@@ -137,6 +152,8 @@ type
     of NodeKind.Type: `type`*: Type
     of NodeKind.Literal: literal*: Literal
     of NodeKind.Expression: expression*: Expression
+    of NodeKind.FunctionCall: functionCall*: FunctionCall
+    of NodeKind.VariableDefinition: variableDefinition*: VariableDefinition
 
 proc lineData*(data: string, index: int): tuple[line, character: int] =
   let dataLen = data.len
@@ -196,6 +213,24 @@ proc initIdentifier*(name: string): Node =
     identifier: Identifier(name: name),
   )
 
+proc initType*(kind: TypeKind, name = none(Node)): Node =
+  if kind == TypeKind.Custom:
+    return Node(kind: NodeKind.Type, `type`: Type(kind: kind, name: name))
+  else:
+    return Node(kind: NodeKind.Type, `type`: Type(kind: kind))
+
+proc initVariableDefinition*(kind: VariableDefinitionKind,
+                             name: Node,
+                             `type` = initNone()): Node =
+  Node(
+    kind: NodeKind.VariableDefinition,
+    variableDefinition: VariableDefinition(
+      kind: kind,
+      name: name,
+      `type`: `type`,
+    ),
+  )
+
 proc initUnaryExpression*(kind: UnaryExpressionKind, value = initNone()): Node =
   Node(
     kind: NodeKind.Expression,
@@ -215,11 +250,41 @@ proc initBinaryExpression*(kind: BinaryExpressionKind;
     ),
   )
 
+proc initFunctionCall*(name: Node, arguments = initNone()): Node =
+  Node(
+    kind: NodeKind.FunctionCall,
+    functionCall: FunctionCall(
+      name: name,
+      arguments: arguments,
+    ),
+  )
+
 proc initStatementList*(): Node =
   Node(
     kind: NodeKind.List,
     list: List(kind: ListKind.Statement),
   )
+
+proc initCommaList*(): Node =
+  Node(
+    kind: NodeKind.List,
+    list: List(kind: ListKind.Comma),
+  )
+
+proc toTypeKind*(text: String): TypeKind =
+  case text:
+  of "int": TypeKind.Int
+  of "float": TypeKind.Float
+  of "bool": TypeKind.Bool
+  of "string": TypeKind.String
+  else: TypeKind.Custom
+
+proc toType*(identifier: Identifier): Type =
+  let typeKind = identifier.name.toTypeKind
+  if typeKind == TypeKind.Custom:
+    return initType(typeKind, identifier)
+  else:
+    return initType(typeKind)
 
 proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   case text:
@@ -245,10 +310,29 @@ proc toBinaryExpressionKind*(text: string): Option[BinaryExpressionKind] =
   of "%=": some(BinaryExpressionKind.ModEquals)
   else: none(BinaryExpressionKind)
 
+proc toVariableDefinitionKind*(text: string): Option[VariableDefinitionKind] =
+  case text:
+  of "const": some(VariableDefinitionKind.Constant)
+  of "var": some(VariableDefinitionKind.Mutable)
+  else: none(VariableDefinitionKind)
+
 proc toDitto*(s: Node): string
 
 proc toDitto*(s: Identifier): string =
   s.name
+
+proc toDitto*(s: VariableDefinitionKind): string =
+  case s:
+  of VariableDefinitionKind.Constant: "const"
+  of VariableDefinitionKind.Mutable: "var"
+
+proc toDitto*(s: VariableDefinition): string =
+  result.add(s.kind.toDitto)
+  result.add(" ")
+  result.add(s.name.toDitto)
+  if s.`type`.kind != NodeKind.None:
+    result.add(" ")
+    result.add(s.`type`.toDitto)
 
 proc toDitto*(s: Literal): string =
   case s.kind:
@@ -263,7 +347,7 @@ proc toDitto*(s: Type): string =
   of TypeKind.Float: "float"
   of TypeKind.String: "string"
   of TypeKind.Bool: "bool"
-  of TypeKind.Custom: s.name
+  of TypeKind.Custom: s.name.toDitto
 
 proc toDitto*(s: List): string =
   case s.kind:
@@ -326,6 +410,12 @@ proc toDitto*(s: Expression): string =
     result.add(" ")
     result.add(s.binary.right.toDitto)
 
+proc toDitto*(s: FunctionCall): string =
+  result.add(s.name.toDitto)
+  result.add("(")
+  result.add(s.arguments.toDitto)
+  result.add(")")
+
 proc toDitto*(s: Node): string =
   case s.kind:
   of NodeKind.None: "NONE"
@@ -334,3 +424,5 @@ proc toDitto*(s: Node): string =
   of NodeKind.Type: s.`type`.toDitto
   of NodeKind.Literal: s.literal.toDitto
   of NodeKind.Expression: s.expression.toDitto
+  of NodeKind.FunctionCall: s.functionCall.toDitto
+  of NodeKind.VariableDefinition: s.variableDefinition.toDitto
